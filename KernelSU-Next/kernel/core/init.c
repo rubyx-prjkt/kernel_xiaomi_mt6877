@@ -5,6 +5,9 @@
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
 
 #include "preinit/preinit.h"
 #include "policy/allowlist.h"
@@ -39,6 +42,25 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
 int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 			void *envp, int *flags)
 {
+#ifdef CONFIG_KSU_SUSFS
+	if (current->pid != 1 && is_init(current_cred()) && filename_ptr && !IS_ERR(*filename_ptr)) {
+		if (unlikely(!strcmp((*filename_ptr)->name, KSUD_PATH))) {
+			pr_info("ksu_handle_execveat: escape to root for init executing ksud: %d\n", current->pid);
+			escape_to_root_for_init();
+		} else if (likely(!strstr((*filename_ptr)->name, "/app_process") &&
+				  !strstr((*filename_ptr)->name, "/adbd") &&
+				  !strstr((*filename_ptr)->name, "/stub_zygote"))) {
+			susfs_set_current_proc_no_su();
+		}
+	}
+#else
+	if (current->pid != 1 && is_init(current_cred()) && filename_ptr && !IS_ERR(*filename_ptr)) {
+		if (unlikely(!strcmp((*filename_ptr)->name, KSUD_PATH))) {
+			pr_info("ksu_handle_execveat: escape to root for init executing ksud: %d\n", current->pid);
+			escape_to_root_for_init();
+		}
+	}
+#endif
 	ksu_handle_execveat_ksud(fd, filename_ptr,
 				 (struct user_arg_ptr *)argv,
 				 (struct user_arg_ptr *)envp, flags);
@@ -133,6 +155,10 @@ int __init kernelsu_init(void)
         pr_err("prepare cred failed!\n");
         return -ENOSYS;
     }
+
+#ifdef CONFIG_KSU_SUSFS
+	susfs_init();
+#endif
 
 	ksu_feature_init();
 

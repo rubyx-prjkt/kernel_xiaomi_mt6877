@@ -44,7 +44,7 @@ config KSU_ALLOWLIST_WORKAROUND
 config KSU_MANUAL_HOOK
 	bool "KernelSU manual hook mode."
 	depends on KSU && KSU != m
-	default y if !KPROBES
+	default y if !KPROBES || KSU_SUSFS
 	default n
 	help
 	  Enable manual hook support.
@@ -71,5 +71,86 @@ config KSU_SYSCALL_TABLE_HOOK
 	  Requires kernel >= 4.17 (pt_regs-based syscall ABI).
 
 endchoice
+
+menu "KernelSU - SUSFS"
+
+config KSU_SUSFS
+	bool "KernelSU addon - SUSFS"
+	depends on KSU && THREAD_INFO_IN_TASK
+	default y
+	help
+	  Patch and Enable SUSFS to kernel with KernelSU.
+
+config KSU_SUSFS_SUS_PATH
+	bool "Enable to hide suspicious path"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow hiding user-defined paths and sub-paths from various system calls.
+
+config KSU_SUSFS_SUS_MOUNT
+	bool "Enable to hide suspicious mounts"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Assign fake mnt_id/mnt_group_id and hide sus mounts from /proc/self/[mounts|mountinfo|mountstat].
+
+config KSU_SUSFS_SUS_KSTAT
+	bool "Enable to spoof suspicious kstat"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow spoofing kstat of user-defined file/directory.
+
+config KSU_SUSFS_SPOOF_UNAME
+	bool "Enable to spoof uname"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow spoofing the string returned by uname syscall.
+
+config KSU_SUSFS_ENABLE_LOG
+	bool "Enable logging susfs log to kernel"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow logging susfs log to kernel.
+
+config KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+	bool "Enable to automatically hide ksu and susfs symbols from /proc/kallsyms"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Automatically hide ksu and susfs symbols from /proc/kallsyms.
+
+config KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	bool "Enable to spoof /proc/bootconfig (gki) or /proc/cmdline (non-gki)"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Spoof /proc/cmdline with a user-defined string.
+
+config KSU_SUSFS_OPEN_REDIRECT
+	bool "Enable to redirect a path to be opened with another path"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow redirecting a target path to be opened with another user-defined path.
+
+config KSU_SUSFS_SUS_MAP
+	bool "Enable to hide some mmapped real file from proc maps interfaces"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow hiding mmapped real files from /proc/<pid>/[maps|smaps|smaps_rollup|mem|pagemap].
+
+config KSU_SUSFS_PRIORITY_UID_FILTER
+	bool "Enable hiding user-defined uids from priority syscalls"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow hiding user-defined uids from getpriority/setpriority/ioprio_get/ioprio_set.
+
+endmenu
 
 endmenu
