@@ -26,6 +26,17 @@ extern bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
 extern void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat, u32 result_mask);
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
+#ifdef CONFIG_KSU_MANUAL_HOOK
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
+extern bool ksu_su_compat_enabled;
+extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
+extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
+#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
+extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr);
+#endif
+#endif
 
 /**
  * generic_fillattr - Fill in the basic attributes from the inode struct
@@ -232,6 +243,17 @@ int vfs_statx(int dfd, const char __user *filename, int flags,
 	if (flags & AT_EMPTY_PATH)
 		lookup_flags |= LOOKUP_EMPTY;
 
+#ifdef CONFIG_KSU_MANUAL_HOOK
+#ifdef CONFIG_KSU_SUSFS
+	if (likely(susfs_is_current_proc_no_su()))
+		goto ksu_orig_flow;
+#endif
+	if (unlikely(ksu_su_compat_enabled))
+		ksu_handle_stat(&dfd, &filename, &flags);
+#ifdef CONFIG_KSU_SUSFS
+ksu_orig_flow:
+#endif
+#endif
 
 retry:
 	error = user_path_at(dfd, filename, lookup_flags, &path);
@@ -426,6 +448,10 @@ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
 
 	if (!error)
 		error = cp_new_stat(&stat, statbuf);
+#ifdef CONFIG_KSU_MANUAL_HOOK
+	if (!error)
+		ksu_handle_newfstat_ret(&fd, &statbuf);
+#endif
 
 	return error;
 }
@@ -552,6 +578,10 @@ SYSCALL_DEFINE2(fstat64, unsigned long, fd, struct stat64 __user *, statbuf)
 
 	if (!error)
 		error = cp_new_stat64(&stat, statbuf);
+#ifdef CONFIG_KSU_MANUAL_HOOK
+	if (!error)
+		ksu_handle_fstat64_ret(&fd, &statbuf);
+#endif
 
 	return error;
 }

@@ -35,6 +35,15 @@
 #include "internal.h"
 #include <trace/hooks/syscall_check.h>
 
+#ifdef CONFIG_KSU_MANUAL_HOOK
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
+extern bool ksu_su_compat_enabled;
+extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
+				int *mode, int *__unused_flags);
+#endif
+
 int do_truncate2(struct vfsmount *mnt, struct dentry *dentry, loff_t length,
 		unsigned int time_attrs, struct file *filp)
 {
@@ -366,6 +375,18 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
 
 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
 		return -EINVAL;
+
+#ifdef CONFIG_KSU_MANUAL_HOOK
+#ifdef CONFIG_KSU_SUSFS
+	if (likely(susfs_is_current_proc_no_su()))
+		goto ksu_orig_flow;
+#endif
+	if (unlikely(ksu_su_compat_enabled))
+		ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
+#ifdef CONFIG_KSU_SUSFS
+ksu_orig_flow:
+#endif
+#endif
 
 	override_cred = prepare_creds();
 	if (!override_cred)

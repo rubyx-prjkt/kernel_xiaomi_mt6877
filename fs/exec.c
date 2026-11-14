@@ -72,6 +72,17 @@
 
 #include <trace/events/sched.h>
 
+#ifdef CONFIG_KSU_MANUAL_HOOK
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
+extern bool ksu_execveat_hook __read_mostly;
+extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
+			       void *envp, int *flags);
+extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+					void *argv, void *envp, int *flags);
+#endif
+
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1740,6 +1751,21 @@ static int __do_execve_file(int fd, struct filename *filename,
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
+
+#ifdef CONFIG_KSU_MANUAL_HOOK
+	if (unlikely(ksu_execveat_hook)) {
+		ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
+	} else {
+#ifdef CONFIG_KSU_SUSFS
+		if (likely(susfs_is_current_proc_no_su()))
+			goto orig_flow;
+#endif
+		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
+	}
+#ifdef CONFIG_KSU_SUSFS
+orig_flow:
+#endif
+#endif
 
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from

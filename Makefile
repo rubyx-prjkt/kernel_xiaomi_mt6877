@@ -1177,6 +1177,11 @@ $(sort $(vmlinux-deps)): $(vmlinux-dirs) ;
 PHONY += $(vmlinux-dirs)
 $(vmlinux-dirs): prepare scripts
 	$(Q)$(MAKE) $(build)=$@ need-builtin=1
+ifdef CONFIG_KSU
+ifdef CONFIG_SECURITY_SELINUX
+drivers: security
+endif
+endif
 
 define filechk_kernel.release
 	echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion \
