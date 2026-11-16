@@ -2046,6 +2046,9 @@ void ufshcd_mtk_shutdown(struct platform_device *pdev)
 	 * can prevent it.
 	 */
 	shost_for_each_device(sdev, hba->host)
+		scsi_autopm_get_device(sdev);
+
+	shost_for_each_device(sdev, hba->host)
 		scsi_device_quiesce(sdev);
 
 	ufshcd_shutdown(hba);
